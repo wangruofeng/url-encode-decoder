@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>URL / HTML 实体 / Unicode / Base64 编解码工具</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --border: #e5e7eb;
+    --border-strong: #d1d5db;
+    --text: #1f2328;
+    --text-muted: #6b7280;
+    --text-faint: #9ca3af;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --accent-soft: #eff6ff;
+    --danger: #dc2626;
+    --danger-soft: #fef2f2;
+    --success: #16a34a;
+    --success-soft: #f0fdf4;
+    --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --radius: 10px;
+  }
+  html.dark {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --border-strong: #484f58;
+    --text: #e6edf3;
+    --text-muted: #9198a1;
+    --text-faint: #6e7681;
+    --accent: #58a6ff;
+    --accent-hover: #79b8ff;
+    --accent-soft: #1a2332;
+    --danger: #f87171;
+    --danger-soft: #2a1a1c;
+    --success: #4ade80;
+    --success-soft: #132a1f;
+    --shadow: 0 1px 3px rgba(0,0,0,.4);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---------- 页头 ---------- */
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 20px; background: var(--panel);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 650; }
+  .logo .mark {
+    width: 30px; height: 30px; border-radius: 8px;
+    display: grid; place-items: center;
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    color: #fff; font-size: 12px; font-weight: 700; line-height: 1;
+  }
+  .logo .sub { font-size: 12px; color: var(--text-muted); font-weight: 400; }
+  .spacer { flex: 1; }
+
+  .icon-btn {
+    width: 36px; height: 36px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--panel);
+    color: var(--text-muted); cursor: pointer;
+    display: grid; place-items: center; transition: all .15s;
+  }
+  .icon-btn:hover { color: var(--text); border-color: var(--border-strong); background: var(--bg); }
+  .icon-btn svg { width: 18px; height: 18px; }
+  header .icon-btn { border: none; background: transparent; }
+  header .icon-btn:hover { background: var(--bg); border-color: transparent; }
+
+  /* ---------- 工具栏 ---------- */
+  .toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    padding: 10px 20px; background: var(--panel);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 34px; padding: 0 12px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--panel); color: var(--text);
+    font-size: 13px; cursor: pointer; transition: all .15s; white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) { border-color: var(--border-strong); background: var(--bg); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn svg { width: 15px; height: 15px; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn.ghost { border-color: transparent; color: var(--text-muted); }
+  .btn.ghost:hover { background: var(--bg); color: var(--text); }
+  .divider { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
+  .seg {
+    display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  }
+  .seg button {
+    height: 34px; padding: 0 11px; border: 0; background: var(--panel);
+    color: var(--text-muted); font-size: 12.5px; cursor: pointer;
+    border-right: 1px solid var(--border); transition: all .15s;
+  }
+  .seg button:last-child { border-right: 0; }
+  .seg button:hover { background: var(--bg); color: var(--text); }
+  .seg button.active { background: var(--accent-soft); color: var(--accent); }
+
+  /* ---------- 主工作区 ---------- */
+  main { flex: 1; overflow: auto; padding: 18px 20px 60px; }
+  .container { max-width: 960px; margin: 0 auto; }
+
+  /* 控制栏：转换类型 + 方向 + URL 子模式 */
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+    margin-bottom: 14px;
+  }
+  .control-group { display: flex; align-items: center; gap: 8px; }
+  .control-label { font-size: 12px; color: var(--text-muted); }
+
+  /* 输入输出区 */
+  .io-grid {
+    display: grid; grid-template-columns: 1fr; gap: 14px;
+  }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden;
+  }
+  .panel-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+    background: var(--bg); font-size: 12px; color: var(--text-muted);
+  }
+  .panel-head b { color: var(--text); font-weight: 600; }
+  .panel-body { position: relative; }
+  textarea {
+    width: 100%; min-height: 160px; max-height: 320px;
+    border: none; background: var(--panel); color: var(--text);
+    padding: 12px 14px; font-family: "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+    font-size: 13px; line-height: 1.7; resize: vertical; outline: none;
+  }
+  textarea::placeholder { color: var(--text-faint); }
+
+  /* 错误提示 */
+  .error-bar {
+    display: none; align-items: center; gap: 8px;
+    padding: 10px 14px; background: var(--danger-soft);
+    border-top: 1px solid var(--danger); color: var(--danger);
+    font-size: 13px;
+  }
+  .error-bar.show { display: flex; }
+  .error-bar svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  /* URL 拆解卡 */
+  .url-card {
+    display: none; margin-top: 14px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden;
+  }
+  .url-card.show { display: block; }
+  .url-card-head {
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+    background: var(--bg); font-size: 13px; font-weight: 600; color: var(--text);
+  }
+  .url-card-body { padding: 12px 14px; }
+  .kv-row {
+    display: flex; align-items: baseline; gap: 10px;
+    padding: 7px 0; border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .kv-row:last-child { border-bottom: none; }
+  .kv-key { width: 70px; flex-shrink: 0; color: var(--text-muted); }
+  .kv-val { flex: 1; word-break: break-all; font-family: "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace; }
+  .kv-copy {
+    margin-left: auto; opacity: 0;
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 7px; border-radius: 5px;
+    border: 1px solid var(--border); background: var(--panel);
+    color: var(--text-muted); font-size: 11px; cursor: pointer;
+    transition: opacity .12s, color .12s;
+  }
+  .kv-row:hover .kv-copy { opacity: 1; }
+  .kv-copy:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* query 表格 */
+  .query-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+  .query-table th, .query-table td {
+    text-align: left; padding: 7px 8px; border: 1px solid var(--border);
+  }
+  .query-table th { background: var(--bg); color: var(--text-muted); font-weight: 500; }
+  .query-table td { word-break: break-all; font-family: "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace; }
+  .query-table td .kv-copy { opacity: 1; margin-left: 0; }
+
+  /* 统计 */
+  .stat-bar {
+    display: flex; gap: 14px; margin-top: 10px;
+    font-size: 12px; color: var(--text-muted);
+  }
+
+  /* Toast */
+  #toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--text); color: var(--panel);
+    padding: 9px 16px; border-radius: 8px; font-size: 13px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.2);
+    opacity: 0; pointer-events: none; transition: all .22s;
+    z-index: 200; display: flex; align-items: center; gap: 7px;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast svg { width: 15px; height: 15px; }
+
+  .hidden { display: none !important; }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+
+  @media (max-width: 640px) {
+    header { padding: 12px 14px; }
+    .toolbar { padding: 8px 12px; gap: 6px; }
+    main { padding: 12px 12px 50px; }
+    .logo .sub { display: none; }
+    .btn { height: 32px; padding: 0 10px; font-size: 12.5px; }
+    .seg button { padding: 0 9px; font-size: 12px; }
+    textarea { min-height: 130px; }
+    .kv-key { width: 56px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="mark">%20</div>
+    <div>
+      编解码工具
+      <div class="sub">URL / HTML 实体 / Unicode 转义 / Base64</div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <a class="icon-btn" href="https://github.com/wangruofeng/url-encode-decoder" target="_blank" rel="noopener noreferrer" title="查看 GitHub 源码" aria-label="GitHub 源码仓库">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.37.5 0 5.78 0 12.292c0 5.211 3.438 9.63 8.205 11.188.6.111.82-.254.82-.567 0-.28-.01-1.022-.015-2.005-3.338.711-4.042-1.582-4.042-1.582-.546-1.361-1.335-1.725-1.335-1.725-1.087-.731.084-.716.084-.716 1.205.082 1.838 1.215 1.838 1.215 1.07 1.803 2.809 1.282 3.495.981.108-.763.417-1.282.76-1.577-2.665-.295-5.466-1.309-5.466-5.827 0-1.287.465-2.339 1.235-3.164-.135-.297-.54-1.498.105-3.121 0 0 1.005-.316 3.3 1.209.96-.262 1.98-.392 3-.397 1.02.005 2.04.135 3 .397 2.28-1.525 3.285-1.209 3.285-1.209.645 1.623.24 2.824.12 3.121.765.825 1.23 1.877 1.23 3.164 0 4.53-2.805 5.527-5.475 5.817.42.354.81 1.077.81 2.182 0 1.578-.015 2.846-.015 3.229 0 .309.21.678.825.562C20.565 21.917 24 17.495 24 12.292 24 5.78 18.627.5 12 .5z"/></svg>
+  </a>
+  <button class="icon-btn" id="themeBtn" title="切换深浅色"></button>
+</header>
+
+<div class="toolbar">
+  <button class="btn" id="sampleBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+    示例
+  </button>
+  <button class="btn" id="copyBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    复制结果
+  </button>
+  <button class="btn" id="swapBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10h14l-4-4"/><path d="M17 14H3l4 4"/></svg>
+    交换
+  </button>
+  <button class="btn ghost" id="clearBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+    清空
+  </button>
+</div>
+
+<main>
+  <div class="container">
+    <!-- 控制区 -->
+    <div class="controls">
+      <div class="control-group">
+        <span class="control-label">转换类型</span>
+        <div class="seg" id="typeSeg">
+          <button data-type="url" class="active">URL</button>
+          <button data-type="html">HTML 实体</button>
+          <button data-type="unicode">Unicode 转义</button>
+          <button data-type="base64">Base64</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">方向</span>
+        <div class="seg" id="dirSeg">
+          <button data-dir="encode" class="active">编码</button>
+          <button data-dir="decode">解码</button>
+        </div>
+      </div>
+
+      <div class="control-group" id="urlModeGroup">
+        <span class="control-label">URL 模式</span>
+        <div class="seg" id="urlModeSeg">
+          <button data-mode="component" class="active">encodeURIComponent</button>
+          <button data-mode="uri">encodeURI</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 输入输出 -->
+    <div class="io-grid">
+      <div class="panel">
+        <div class="panel-head"><b>输入</b><span>在此粘贴或输入需要处理的内容</span></div>
+        <div class="panel-body">
+          <textarea id="inputArea" spellcheck="false" placeholder="在此输入内容…"></textarea>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><b>输出</b><span>转换结果将实时显示在这里</span></div>
+        <div class="panel-body">
+          <textarea id="outputArea" spellcheck="false" placeholder="转换结果…" readonly></textarea>
+        </div>
+        <div class="error-bar" id="errorBar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span id="errorText"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- URL 拆解卡 -->
+    <div class="url-card" id="urlCard">
+      <div class="url-card-head">URL 拆解</div>
+      <div class="url-card-body" id="urlCardBody"></div>
+    </div>
+
+    <div class="stat-bar" id="statBar">
+      <span>输入 <b id="inLen">0</b> 字符</span>
+      <span>输出 <b id="outLen">0</b> 字符</span>
+    </div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+/* =========================================================
+   URL / HTML 实体 / Unicode 转义 / Base64 编解码工具
+   - 单文件、零依赖、纯前端
+   - 输入即实时转换（防抖 150ms）
+   - URL 拆解卡：协议 / host / 端口 / path / query 参数
+   ========================================================= */
+
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+
+// 状态
+const state = {
+  type: 'url',        // url | html | unicode | base64
+  dir: 'encode',      // encode | decode
+  urlMode: 'component' // component | uri
+};
+
+/* ---------- 通用工具 ---------- */
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+let toastTimer;
+function showToast(msg, ok = true) {
+  const t = $('#toast');
+  t.innerHTML = (ok
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+  ) + '<span>' + escapeHtml(msg) + '</span>';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1600);
+}
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch {}
+  // 回退方案
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch {}
+  document.body.removeChild(ta);
+  return ok;
+}
+async function copyAndToast(text, msg) {
+  if (await copyText(text)) showToast(msg);
+  else showToast('复制失败', false);
+}
+
+function setError(msg) {
+  const bar = $('#errorBar');
+  const text = $('#errorText');
+  if (msg) {
+    text.textContent = msg;
+    bar.classList.add('show');
+  } else {
+    bar.classList.remove('show');
+    text.textContent = '';
+  }
+}
+
+function updateStats() {
+  const input = $('#inputArea').value;
+  const output = $('#outputArea').value;
+  $('#inLen').textContent = String(input.length);
+  $('#outLen').textContent = String(output.length);
+}
+
+/* ---------- 各类型转换器 ---------- */
+
+// URL 编码 / 解码
+function convertUrl(text, dir, mode) {
+  if (dir === 'encode') {
+    return mode === 'uri' ? encodeURI(text) : encodeURIComponent(text);
+  }
+  // 解码：优先使用对应模式，但解码时统一用 decodeURIComponent 可处理 %20 与 +
+  try {
+    // encodeURI 范围比 encodeURIComponent 窄，因此解码时decodeURIComponent通用
+    return decodeURIComponent(text);
+  } catch (err) {
+    throw new Error('URL 解码失败：' + (err.message || '非法 % 序列'));
+  }
+}
+
+// HTML 实体：编码/解码
+const NAMED_ENTITIES = {
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  ' ': '&nbsp;', '©': '&copy;', '®': '&reg;', '™': '&trade;',
+  '€': '&euro;', '£': '&pound;', '¥': '&yen;', '§': '&sect;',
+  '¶': '&para;', '·': '&middot;', '…': '&hellip;', '—': '&mdash;',
+  '–': '&ndash;', '‘': '&lsquo;', '’': '&rsquo;', '“': '&ldquo;',
+  '”': '&rdquo;', '«': '&laquo;', '»': '&raquo;', '←': '&larr;',
+  '↑': '&uarr;', '→': '&rarr;', '↓': '&darr;', '↔': '&harr;',
+  '⇐': '&lArr;', '⇑': '&uArr;', '⇒': '&rArr;', '⇓': '&dArr;',
+  '⇔': '&hArr;', 'α': '&alpha;', 'β': '&beta;', 'γ': '&gamma;',
+  'δ': '&delta;', 'ε': '&epsilon;', 'ζ': '&zeta;', 'η': '&eta;',
+  'θ': '&theta;', 'λ': '&lambda;', 'μ': '&mu;', 'π': '&pi;',
+  'ρ': '&rho;', 'σ': '&sigma;', 'τ': '&tau;', 'φ': '&phi;',
+  'ω': '&omega;'
+};
+const REVERSE_NAMED = {};
+for (const [k, v] of Object.entries(NAMED_ENTITIES)) REVERSE_NAMED[v] = k;
+
+function encodeHtmlEntities(text) {
+  return text.replace(/[&<>"']/g, ch => NAMED_ENTITIES[ch]);
+}
+
+function decodeHtmlEntities(text) {
+  return text
+    // 命名实体
+    .replace(/&[a-zA-Z][a-zA-Z0-9]*;/g, ent => {
+      if (REVERSE_NAMED[ent]) return REVERSE_NAMED[ent];
+      // 浏览器兜底解析
+      const tmp = document.createElement('textarea');
+      tmp.innerHTML = ent;
+      return tmp.value;
+    })
+    // 十进制数字实体
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(parseInt(code, 10)))
+    // 十六进制数字实体
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)));
+}
+
+function convertHtml(text, dir) {
+  if (dir === 'encode') return encodeHtmlEntities(text);
+  return decodeHtmlEntities(text);
+}
+
+// Unicode 转义：中文 ↔ 中文（也支持 \u{1F600} 形式）
+function encodeUnicode(text, useBraces) {
+  let out = '';
+  for (const ch of text) {
+    const cp = ch.codePointAt(0);
+    if (cp < 128) {
+      // ASCII 可视字符原样保留，控制字符转义
+      out += ch;
+    } else if (useBraces) {
+      out += '\\u{' + cp.toString(16).toUpperCase() + '}';
+    } else {
+      if (cp <= 0xFFFF) {
+        out += '\\u' + cp.toString(16).toUpperCase().padStart(4, '0');
+      } else {
+        // 辅助平面字符拆成代理对
+        const high = Math.floor((cp - 0x10000) / 0x400) + 0xD800;
+        const low = ((cp - 0x10000) % 0x400) + 0xDC00;
+        out += '\\u' + high.toString(16).toUpperCase() + '\\u' + low.toString(16).toUpperCase();
+      }
+    }
+  }
+  return out;
+}
+
+function decodeUnicode(text) {
+  // 先处理 \u{1F600} 形式
+  let tmp = text.replace(/\\u\{([0-9a-fA-F]+)\}/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)));
+  // 处理 中 形式
+  tmp = tmp.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+  return tmp;
+}
+
+function convertUnicode(text, dir) {
+  if (dir === 'encode') return encodeUnicode(text, false);
+  return decodeUnicode(text);
+}
+
+// Base64：UTF-8 安全
+function bytesToBase64(bytes) {
+  const bin = Array.from(bytes, b => String.fromCharCode(b)).join('');
+  try {
+    return btoa(bin);
+  } catch (err) {
+    throw new Error('Base64 编码失败：' + (err.message || '输入包含非法字符'));
+  }
+}
+function base64ToBytes(base64) {
+  try {
+    return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+  } catch (err) {
+    throw new Error('Base64 解码失败：' + (err.message || '非法 Base64 字符串'));
+  }
+}
+function convertBase64(text, dir) {
+  if (dir === 'encode') {
+    const bytes = new TextEncoder().encode(text);
+    return bytesToBase64(bytes);
+  }
+  const bytes = base64ToBytes(text);
+  return new TextDecoder().decode(bytes);
+}
+
+/* ---------- 核心转换调度 ---------- */
+function doConvert() {
+  const input = $('#inputArea').value;
+  if (input === '') {
+    $('#outputArea').value = '';
+    setError('');
+    updateUrlCard('');
+    updateStats();
+    return;
+  }
+
+  let output = '';
+  try {
+    switch (state.type) {
+      case 'url': output = convertUrl(input, state.dir, state.urlMode); break;
+      case 'html': output = convertHtml(input, state.dir); break;
+      case 'unicode': output = convertUnicode(input, state.dir); break;
+      case 'base64': output = convertBase64(input, state.dir); break;
+      default: output = input;
+    }
+    setError('');
+  } catch (err) {
+    $('#outputArea').value = '';
+    setError(err.message || '转换出错');
+    updateStats();
+    return;
+  }
+
+  $('#outputArea').value = output;
+  updateUrlCard(input);
+  updateStats();
+}
+
+let debounceTimer;
+function scheduleConvert() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(doConvert, 150);
+}
+
+/* ---------- URL 拆解卡 ---------- */
+function looksLikeUrl(s) {
+  return /^https?:\/\//i.test(s.trim()) || /^[a-z][a-z0-9+.-]*:\/\//i.test(s.trim());
+}
+
+function updateUrlCard(input) {
+  const card = $('#urlCard');
+  const body = $('#urlCardBody');
+  if (!looksLikeUrl(input)) {
+    card.classList.remove('show');
+    body.innerHTML = '';
+    return;
+  }
+
+  let url;
+  try {
+    url = new URL(input.trim());
+  } catch {
+    card.classList.remove('show');
+    return;
+  }
+
+  card.classList.add('show');
+
+  const rows = [
+    { key: '协议', val: url.protocol },
+    { key: 'Host', val: url.hostname },
+    { key: '端口', val: url.port || '(默认)' },
+    { key: 'Path', val: url.pathname }
+  ];
+
+  let html = '';
+  rows.forEach(r => {
+    html += '<div class="kv-row">' +
+      '<span class="kv-key">' + escapeHtml(r.key) + '</span>' +
+      '<span class="kv-val">' + escapeHtml(r.val) + '</span>' +
+      '<button class="kv-copy" data-copy="' + escapeHtml(r.val) + '">复制</button>' +
+      '</div>';
+  });
+
+  // query 参数表格
+  const params = Array.from(url.searchParams.entries());
+  if (params.length) {
+    html += '<div style="margin-top:10px;font-weight:600;font-size:13px;color:var(--text);">Query 参数</div>';
+    html += '<table class="query-table"><thead><tr><th>参数名</th><th>参数值</th><th style="width:70px">操作</th></tr></thead><tbody>';
+    params.forEach(([k, v]) => {
+      html += '<tr>' +
+        '<td>' + escapeHtml(k) + '</td>' +
+        '<td>' + escapeHtml(v) + '</td>' +
+        '<td>' +
+          '<button class="kv-copy" data-copy="' + escapeHtml(k) + '">复制 key</button>' +
+          '<button class="kv-copy" data-copy="' + escapeHtml(v) + '" style="margin-top:4px">复制 value</button>' +
+        '</td>' +
+        '</tr>';
+    });
+    html += '</tbody></table>';
+  }
+
+  body.innerHTML = html;
+
+  // 绑定复制按钮
+  body.querySelectorAll('.kv-copy').forEach(btn => {
+    btn.addEventListener('click', () => copyAndToast(btn.dataset.copy, '已复制'));
+  });
+}
+
+/* ---------- 控件交互 ---------- */
+function setActiveSeg(container, key, value) {
+  container.querySelectorAll('button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset[key] === value);
+  });
+}
+
+function updateUrlModeVisibility() {
+  const group = $('#urlModeGroup');
+  group.style.display = state.type === 'url' ? 'flex' : 'none';
+}
+
+function switchType(type) {
+  state.type = type;
+  setActiveSeg($('#typeSeg'), 'type', type);
+  updateUrlModeVisibility();
+  scheduleConvert();
+}
+
+function switchDir(dir) {
+  state.dir = dir;
+  setActiveSeg($('#dirSeg'), 'dir', dir);
+  scheduleConvert();
+}
+
+function switchUrlMode(mode) {
+  state.urlMode = mode;
+  setActiveSeg($('#urlModeSeg'), 'mode', mode);
+  scheduleConvert();
+}
+
+/* ---------- 工具栏按钮 ---------- */
+const SAMPLES = {
+  url: {
+    encode: 'https://example.com/路径?key=中文&value=hello world',
+    decode: 'https%3A%2F%2Fexample.com%2F%E8%B7%AF%E5%BE%84%3Fkey%3D%E4%B8%AD%E6%96%87%26value%3Dhello%20world'
+  },
+  html: {
+    encode: '<div class="box">中文 & 英文</div>',
+    decode: '&lt;div class=&quot;box&quot;&gt;&#x4E2D;&#x6587; &amp; &#x82F1;&#x6587;&lt;/div&gt;'
+  },
+  unicode: {
+    encode: '中文 Emoji 🚀',
+    decode: '\\u4E2D\\u6587 Emoji \\uD83D\\uDE80'
+  },
+  base64: {
+    encode: '中文测试 string',
+    decode: '5Lit5paH5rWL6K+VIHN0cmluZw=='
+  }
+};
+
+$('#sampleBtn').addEventListener('click', () => {
+  const sample = SAMPLES[state.type][state.dir];
+  $('#inputArea').value = sample;
+  doConvert();
+  showToast('已填入示例');
+});
+
+$('#copyBtn').addEventListener('click', async () => {
+  const out = $('#outputArea').value;
+  if (out === '') { showToast('没有可复制的结果', false); return; }
+  await copyAndToast(out, '已复制结果');
+});
+
+$('#swapBtn').addEventListener('click', () => {
+  const input = $('#inputArea');
+  const output = $('#outputArea');
+  const tmp = input.value;
+  input.value = output.value;
+  output.value = tmp;
+  // 切换方向
+  switchDir(state.dir === 'encode' ? 'decode' : 'encode');
+  showToast('已交换输入输出并切换方向');
+});
+
+$('#clearBtn').addEventListener('click', () => {
+  $('#inputArea').value = '';
+  $('#outputArea').value = '';
+  setError('');
+  updateUrlCard('');
+  updateStats();
+  showToast('已清空');
+});
+
+/* ---------- 事件绑定 ---------- */
+$('#typeSeg').addEventListener('click', (e) => {
+  if (e.target.tagName === 'BUTTON') switchType(e.target.dataset.type);
+});
+$('#dirSeg').addEventListener('click', (e) => {
+  if (e.target.tagName === 'BUTTON') switchDir(e.target.dataset.dir);
+});
+$('#urlModeSeg').addEventListener('click', (e) => {
+  if (e.target.tagName === 'BUTTON') switchUrlMode(e.target.dataset.mode);
+});
+$('#inputArea').addEventListener('input', scheduleConvert);
+
+/* ---------- 主题切换 ---------- */
+const themeBtn = $('#themeBtn');
+const SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+const MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+function setTheme(dark) {
+  document.documentElement.classList.toggle('dark', dark);
+  themeBtn.innerHTML = dark ? SUN : MOON;
+  themeBtn.title = dark ? '切换到浅色' : '切换到深色';
+  try { localStorage.setItem('ued-theme', dark ? 'dark' : 'light'); } catch {}
+}
+themeBtn.addEventListener('click', () => setTheme(!document.documentElement.classList.contains('dark')));
+try {
+  const saved = localStorage.getItem('ued-theme');
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  setTheme(saved ? saved === 'dark' : prefersDark);
+} catch { setTheme(false); }
+
+/* ---------- 初始化 ---------- */
+updateUrlModeVisibility();
+updateStats();
+</script>
+</body>
+</html>
