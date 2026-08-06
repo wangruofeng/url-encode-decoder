@@ -614,7 +614,7 @@ function updateUrlCard(input) {
   const params = Array.from(url.searchParams.entries());
   if (params.length) {
     html += '<div style="margin-top:10px;font-weight:600;font-size:13px;color:var(--text);">Query 参数</div>';
-    html += '<table class="query-table"><thead><tr><th>参数名</th><th>参数值</th><th style="width:70px">操作</th></tr></thead><tbody>';
+    html += '<table class="query-table"><thead><tr><th>参数名</th><th>参数值</th><th style="width:96px">操作</th></tr></thead><tbody>';
     params.forEach(([k, v]) => {
       html += '<tr>' +
         '<td>' + escapeHtml(k) + '</td>' +
