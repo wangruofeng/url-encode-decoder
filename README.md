@@ -6,7 +6,7 @@
 
 - 🔗 **URL 编码 / 解码**：支持 `encodeURIComponent` 与 `encodeURI` 两种模式切换。
 - 🧾 **HTML 实体**：字符与命名实体（`&amp;`）、十进制 / 十六进制数字实体（`&#x4E2D;`）双向转换。
-- 🔤 **Unicode 转义**：中文 ↔ `中文`，兼容辅助平面字符（Emoji 等）。
+- 🔤 **Unicode 转义**：中文 ↔ `\u4e2d\u6587`，兼容辅助平面字符（Emoji 等）。
 - 🔢 **Base64**：文本与 Base64 双向转换，UTF-8 安全（使用 `TextEncoder` / `TextDecoder`）。
 - 📋 **实时转换**：输入即转换，150ms 防抖；一键复制结果、交换输入输出、清空。
 - 🔍 **URL 拆解卡**：当输入像 URL 时自动显示协议、host、端口、path、query 参数表格，每个参数 key/value 均可单独复制。
